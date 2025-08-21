@@ -1,0 +1,64 @@
+name: Node.js CI
+
+on:
+  push:
+    branches:
+      - live_server
+
+jobs:
+  build:
+    runs-on: self-hosted
+
+    strategy:
+      matrix:
+        node-version: [18.x]
+
+    steps:
+      # Step 1: Backup the uploads directory
+      - name: Preserve uploads directory
+        run: |
+          mkdir -p /tmp/uploads_backup
+          if [ -d uploads ]; then
+            tar -czf /tmp/uploads_backup/uploads_backup.tar.gz uploads
+          fi
+
+      - name: Verify backup file creation
+        run: |
+          if [ -f /tmp/uploads_backup/uploads_backup.tar.gz ]; then
+            echo "Backup file created successfully.";
+          else
+            echo "No uploads directory found to backup, or backup creation failed.";
+          fi
+
+      # Step 2: Check out the repository
+      - uses: actions/checkout@v4
+
+      # Step 3: Restore the uploads directory if the backup exists
+      - name: Restore uploads directory
+        run: |
+          if [ -f /tmp/uploads_backup/uploads_backup.tar.gz ]; then
+            tar -xzf /tmp/uploads_backup/uploads_backup.tar.gz -C .
+            echo "Uploads directory restored successfully.";
+            rm /tmp/uploads_backup/uploads_backup.tar.gz
+          else
+            echo "No uploads backup found. Skipping restore.";
+          fi
+
+      # Step 4: Clean up temporary backup files
+      - name: Clean up backup files
+        run: |
+          find /tmp -name uploads_backup.tar.gz -exec rm -f {} \; 2>/dev/null || true
+          echo "Backup files cleaned up."
+
+      # Step 5: Set up Node.js and install dependencies
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
+
+      - run: npm ci --force
+      - run: npm install --force
+
+      # Step 6: Restart the application
+      - run: pm2 restart app.js
