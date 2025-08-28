@@ -345,7 +345,7 @@ const authUser = asyncHandler(async (req, res) => {
         status: false,
       });
     }
-
+    console.log("secret from env authuser:-", process.env.JWT_SECRET);
     const token = jwt.sign({ _id: userdata._id, role: userdata.role }, process.env.JWT_SECRET);
 
     // Set the token in a cookie for 30 days
